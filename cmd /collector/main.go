@@ -5,36 +5,20 @@ import (
 	"log"
 	"net/http"
 
-	"golang.org/x/net/html"
+	"github.com/PuerkitoBio/goquery"
 )
 
 const METACRITIC_SCRAPE_BATCH_SIZE = 1000
 
-func parse(tokenizer *html.Tokenizer) []html.Token {
-	var reviewsHTML = make([]html.Token, METACRITIC_SCRAPE_BATCH_SIZE)
+func extractReviews(doc *goquery.Document) []string {
+	var reviewsHTML = make([]string, METACRITIC_SCRAPE_BATCH_SIZE)
 
-	for {
-		tt := tokenizer.Next()
+	doc.Find("li .review .critic_review").Each(func(i int, s *goquery.Selection) {
+		releaseName := s.Find("li").Text()
+		fmt.Printf("ReleaseName %s", releaseName)
+	})
 
-		switch {
-		case tt == html.StartTagToken:
-			t := tokenizer.Token()
-			if t.Data == "li" {
-				for _, a := range t.Attr {
-					if a.Key == "class" {
-						isReviewHTML := (a.Val == "review critic_review" || a.Val == "review critic_review first_review")
-						if isReviewHTML {
-							currentToken := t
-							reviewsHTML = append(reviewsHTML, currentToken)
-						}
-					}
-				}
-			}
-		case tt == html.ErrorToken:
-			// End of document
-			return reviewsHTML
-		}
-	}
+	return reviewsHTML
 }
 
 func main() {
@@ -64,9 +48,15 @@ func main() {
 			log.Fatal(err)
 		}
 
+		// bodyBytes, err := ioutil.ReadAll(resp.Body)
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+		// fmt.Printf("%s", string(bodyBytes))
+
 		defer resp.Body.Close()
-		tokenizer := html.NewTokenizer(resp.Body)
-		reviewsHTML := parse(tokenizer)
+		doc, err := goquery.NewDocumentFromReader(resp.Body)
+		reviewsHTML := extractReviews(doc)
 
 		fmt.Printf("%s", reviewsHTML)
 	}
